@@ -10,6 +10,7 @@
  * Requisitos:
  *  - PHP 8.x, Composer, aws/aws-sdk-php
  *  - Credenciais AWS em ~/.aws/credentials (perfil default) e região em ~/.aws/config ou passado aqui
+ *  - Parametros de conexão RDS e bucket S3 em ~/.config/config.ini
  *
  * Estimativa de custo:
  *  - ListObjectsV2 custa ~ US$ 0.005 por 1.000 requisições.
@@ -30,42 +31,6 @@ use Ramsey\Uuid\Uuid;
 const LIST_PRICE_PER_1000 = 0.005;         // USD por 1000 ListObjectsV2
 const PAGE_SIZE           = 1000;          // S3 máximo por página
 const LOG_FILE            = '/var/log/s3-size-check.log';
-
-// ===================== PARSE DE ARGUMENTOS =====================
-/*$options = getopt('', [
-    'bucket:',
-    'region:',
-    'base-prefix:',
-    'db-host:',
-    'db-name:',
-    'db-schema-out:',
-    'table-out:',
-    'statuses:',
-    'include-not-in::',      // default false
-    'compute-total-bucket::' // default false
-]);
-
-function mustGet(array $opts, string $key): string {
-    if (!isset($opts[$key]) || trim((string)$opts[$key]) === '') {
-        fwrite(STDERR, "ERRO: parâmetro obrigatório --{$key} ausente.\n");
-        exit(1);
-    }
-    return (string)$opts[$key];
-}
-
-$bucket       = mustGet($options, 'bucket');
-$region       = mustGet($options, 'region');
-$basePrefix   = mustGet($options, 'base-prefix');   // tipicamente "uploads/"
-$dbHost       = mustGet($options, 'db-host');
-$dbName       = mustGet($options, 'db-name');       // medicdb
-$dbSchemaOut  = mustGet($options, 'db-schema-out'); // medic_global
-$tableOut     = mustGet($options, 'table-out');     // global_medic_clinica_storage
-$statusesStr  = mustGet($options, 'statuses');      // exemplo: "Y,B,S,G"
-
-$includeNotIn = isset($options['include-not-in']) ? filter_var($options['include-not-in'], FILTER_VALIDATE_BOOLEAN) : false;
-$computeTotalBucket = isset($options['compute-total-bucket']) ? filter_var($options['compute-total-bucket'], FILTER_VALIDATE_BOOLEAN) : false;
-
-$statuses = array_values(array_filter(array_map('trim', explode(',', $statusesStr)), fn($s) => $s !== ''));*/
 
 // ===================== LEITURA DO ARQUIVO DE CONFIG =====================
 $configFile = getenv('HOME') . '/.config/config.ini';
