@@ -17,6 +17,7 @@
  *  - Fórmula usada: cost = api_calls * (0.005 / 1000.0)
  */
 
+
 declare(strict_types=1);
 
 require __DIR__ . '/vendor/autoload.php';
@@ -24,6 +25,37 @@ require __DIR__ . '/vendor/autoload.php';
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 use Ramsey\Uuid\Uuid;
+
+// ===================== LEITURA DO ARQUIVO DE CONFIG =====================
+$configFile = '~/.config/config.ini';
+if (!file_exists($configFile)) {
+    fwrite(STDERR, "ERRO: Arquivo de configuração config.ini não encontrado em {$configFile}\n");
+    exit(1);
+}
+
+$config = parse_ini_file($configFile, true, INI_SCANNER_TYPED);
+if ($config === false) {
+    fwrite(STDERR, "ERRO: Falha ao ler config.ini\n");
+    exit(1);
+}
+
+// Mapear as variáveis
+$bucket             = $config['basic']['bucket'] ?? '';
+$region             = $config['basic']['region'] ?? 'sa-east-1';
+$basePrefix         = $config['basic']['base_prefix'] ?? 'uploads/';
+
+$dbHost             = $config['database']['db_host'] ?? '';
+$dbName             = $config['database']['db_name'] ?? '';
+$dbSchemaOut        = $config['database']['db_schema_out'] ?? '';
+$tableOut           = $config['database']['table_out'] ?? '';
+$dbUser             = $config['database']['db_user'] ?? '';
+$dbPass             = $config['database']['db_pass'] ?? '';
+
+$statusesStr        = $config['filters']['statuses'] ?? 'Y,B,S,G';
+$includeNotIn       = filter_var($config['filters']['include_not_in'] ?? false, FILTER_VALIDATE_BOOLEAN);
+$computeTotalBucket = filter_var($config['filters']['compute_total_bucket'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+$statuses = array_values(array_filter(array_map('trim', explode(',', $statusesStr)), fn($s) => $s !== ''));
 
 // ===================== CONFIG E CONSTANTES =====================
 const LIST_PRICE_PER_1000 = 0.005;         // USD por 1000 ListObjectsV2
@@ -458,8 +490,11 @@ function getTotalByStatusNot(PDO $pdo, S3Client $s3, string $bucket, string $bas
 
 // ===================== MAIN =====================
 function main(array $opts): void {
-    [$dbUser, $dbPass] = askDbCredentialsInteractively();
+    //[$dbUser, $dbPass] = askDbCredentialsInteractively();
 
+    // Credenciais já lidas do config.ini
+    global $dbUser, $dbPass;
+    
     $bucket      = $opts['bucket'];
     $region      = $opts['region'];
     $basePrefix  = $opts['base_prefix'];
