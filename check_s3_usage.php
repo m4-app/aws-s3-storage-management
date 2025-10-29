@@ -2,7 +2,7 @@
 <?php
 /** 
  * check_s3_usage.php
- *
+ * 1.0
  * Lê clientes do RDS (tabela medic_clinica), monta prefixo S3 "uploads/{base64(codigo_acesso)}/",
  * lista objetos no S3 para cada cliente e soma tamanhos, grava resultados em
  * medic_global.global_medic_clinica_storage, com estimativa de custo por chamadas ListObjectsV2.
