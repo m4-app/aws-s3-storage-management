@@ -1,6 +1,6 @@
 #!/usr/bin/env php
 <?php
-/**
+/** 
  * check_s3_usage.php
  *
  * Lê clientes do RDS (tabela medic_clinica), monta prefixo S3 "uploads/{base64(codigo_acesso)}/",

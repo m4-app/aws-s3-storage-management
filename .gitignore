@@ -1,1 +1,6 @@
 *~
+.gitignore~
+/vendor/
+.DS_Store
+.env
+teste
