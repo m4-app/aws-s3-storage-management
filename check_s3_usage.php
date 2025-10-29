@@ -26,44 +26,13 @@ use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 use Ramsey\Uuid\Uuid;
 
-// ===================== LEITURA DO ARQUIVO DE CONFIG =====================
-$configFile = getenv('HOME') . '/.config/config.ini';
-if (!file_exists($configFile)) {
-    fwrite(STDERR, "ERRO: Arquivo de configuração config.ini não encontrado em {$configFile}\n");
-    exit(1);
-}
-
-$config = parse_ini_file($configFile, true, INI_SCANNER_TYPED);
-if ($config === false) {
-    fwrite(STDERR, "ERRO: Falha ao ler config.ini\n");
-    exit(1);
-}
-
-// Mapear as variáveis
-$bucket             = $config['basic']['bucket'] ?? '';
-$region             = $config['basic']['region'] ?? 'sa-east-1';
-$basePrefix         = $config['basic']['base_prefix'] ?? 'uploads/';
-
-$dbHost             = $config['database']['db_host'] ?? '';
-$dbName             = $config['database']['db_name'] ?? '';
-$dbSchemaOut        = $config['database']['db_schema_out'] ?? '';
-$tableOut           = $config['database']['table_out'] ?? '';
-$dbUser             = $config['database']['db_user'] ?? '';
-$dbPass             = $config['database']['db_pass'] ?? '';
-
-$statusesStr        = $config['filters']['statuses'] ?? 'Y,B,S,G';
-$includeNotIn       = filter_var($config['filters']['include_not_in'] ?? false, FILTER_VALIDATE_BOOLEAN);
-$computeTotalBucket = filter_var($config['filters']['compute_total_bucket'] ?? false, FILTER_VALIDATE_BOOLEAN);
-
-$statuses = array_values(array_filter(array_map('trim', explode(',', $statusesStr)), fn($s) => $s !== ''));
-
 // ===================== CONFIG E CONSTANTES =====================
 const LIST_PRICE_PER_1000 = 0.005;         // USD por 1000 ListObjectsV2
 const PAGE_SIZE           = 1000;          // S3 máximo por página
 const LOG_FILE            = '/var/log/s3-size-check.log';
 
 // ===================== PARSE DE ARGUMENTOS =====================
-$options = getopt('', [
+/*$options = getopt('', [
     'bucket:',
     'region:',
     'base-prefix:',
@@ -95,6 +64,37 @@ $statusesStr  = mustGet($options, 'statuses');      // exemplo: "Y,B,S,G"
 
 $includeNotIn = isset($options['include-not-in']) ? filter_var($options['include-not-in'], FILTER_VALIDATE_BOOLEAN) : false;
 $computeTotalBucket = isset($options['compute-total-bucket']) ? filter_var($options['compute-total-bucket'], FILTER_VALIDATE_BOOLEAN) : false;
+
+$statuses = array_values(array_filter(array_map('trim', explode(',', $statusesStr)), fn($s) => $s !== ''));*/
+
+// ===================== LEITURA DO ARQUIVO DE CONFIG =====================
+$configFile = getenv('HOME') . '/.config/config.ini';
+if (!file_exists($configFile)) {
+    fwrite(STDERR, "ERRO: Arquivo de configuração config.ini não encontrado em {$configFile}\n");
+    exit(1);
+}
+
+$config = parse_ini_file($configFile, true, INI_SCANNER_TYPED);
+if ($config === false) {
+    fwrite(STDERR, "ERRO: Falha ao ler config.ini\n");
+    exit(1);
+}
+
+// Mapear as variáveis
+$bucket             = $config['basic']['bucket'] ?? '';
+$region             = $config['basic']['region'] ?? 'sa-east-1';
+$basePrefix         = $config['basic']['base_prefix'] ?? 'uploads/';
+
+$dbHost             = $config['database']['db_host'] ?? '';
+$dbName             = $config['database']['db_name'] ?? '';
+$dbSchemaOut        = $config['database']['db_schema_out'] ?? '';
+$tableOut           = $config['database']['table_out'] ?? '';
+$dbUser             = $config['database']['db_user'] ?? '';
+$dbPass             = $config['database']['db_pass'] ?? '';
+
+$statusesStr        = $config['filters']['statuses'] ?? 'Y,B,S,G';
+$includeNotIn       = filter_var($config['filters']['include_not_in'] ?? false, FILTER_VALIDATE_BOOLEAN);
+$computeTotalBucket = filter_var($config['filters']['compute_total_bucket'] ?? false, FILTER_VALIDATE_BOOLEAN);
 
 $statuses = array_values(array_filter(array_map('trim', explode(',', $statusesStr)), fn($s) => $s !== ''));
 
