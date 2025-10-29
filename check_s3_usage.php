@@ -27,7 +27,7 @@ use Aws\Exception\AwsException;
 use Ramsey\Uuid\Uuid;
 
 // ===================== LEITURA DO ARQUIVO DE CONFIG =====================
-$configFile = '~/.config/config.ini';
+$configFile = getenv('HOME') . '/.config/config.ini';
 if (!file_exists($configFile)) {
     fwrite(STDERR, "ERRO: Arquivo de configuração config.ini não encontrado em {$configFile}\n");
     exit(1);
