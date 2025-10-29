@@ -1,1 +1,10 @@
-123exemplo.crd
+*~
+.gitignore~
+/vendor/
+.DS_Store
+<<<<<<< Updated upstream
+.env
+teste
+=======
+.env
+>>>>>>> Stashed changes
