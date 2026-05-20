@@ -55,6 +55,9 @@ $computeTotalBucket = filter_var($_ENV['COMPUTE_TOTAL_BUCKET'] ?? 'false', FILTE
 
 $statuses = array_values(array_filter(array_map('trim', explode(',', $statusesStr)), fn($s) => $s !== ''));
 
+$codigoMin = (int)($_ENV['CODIGO_ACESSO_MIN'] ?? 100000);
+$codigoMax = (int)($_ENV['CODIGO_ACESSO_MAX'] ?? 999999);
+
 // ===================== UTILITÁRIOS =====================
 function logMsg(string $msg): void {
     $line = '[' . date('Y-m-d H:i:s') . '] ' . $msg . PHP_EOL;
@@ -167,13 +170,12 @@ function sumPrefixSize(S3Client $s3, string $bucket, ?string $prefix = null): ar
 }
 
 // ===================== DB: BUSCAS DE CLIENTES =====================
-function getClientsByStatuses(PDO $pdo, array $statuses): iterable {
-    // Filtra somente clientes com codigo_acesso 6 dígitos (100000..999999)
+function getClientsByStatuses(PDO $pdo, array $statuses, int $codigoMin, int $codigoMax): iterable {
     $in = implode(',', array_fill(0, count($statuses), '?'));
     $sql = "SELECT codigo_acesso, status
               FROM medic_clinica
              WHERE status IN ($in)
-               AND codigo_acesso BETWEEN 100000 AND 999999
+               AND codigo_acesso BETWEEN ? AND ?
                AND codigo_acesso IS NOT NULL
                AND codigo_acesso <> 0";
 
@@ -181,6 +183,8 @@ function getClientsByStatuses(PDO $pdo, array $statuses): iterable {
     foreach ($statuses as $i => $st) {
         $stmt->bindValue($i+1, $st);
     }
+    $stmt->bindValue(count($statuses) + 1, $codigoMin);
+    $stmt->bindValue(count($statuses) + 2, $codigoMax);
     $stmt->execute();
 
     while ($row = $stmt->fetch()) {
@@ -189,12 +193,12 @@ function getClientsByStatuses(PDO $pdo, array $statuses): iterable {
     $stmt->closeCursor();
 }
 
-function getClientsNotInStatuses(PDO $pdo, array $statuses): iterable {
+function getClientsNotInStatuses(PDO $pdo, array $statuses, int $codigoMin, int $codigoMax): iterable {
     $in = implode(',', array_fill(0, count($statuses), '?'));
     $sql = "SELECT codigo_acesso, status
               FROM medic_clinica
              WHERE status NOT IN ($in)
-               AND codigo_acesso BETWEEN 100000 AND 999999
+               AND codigo_acesso BETWEEN ? AND ?
                AND codigo_acesso IS NOT NULL
                AND codigo_acesso <> 0";
 
@@ -202,6 +206,8 @@ function getClientsNotInStatuses(PDO $pdo, array $statuses): iterable {
     foreach ($statuses as $i => $st) {
         $stmt->bindValue($i+1, $st);
     }
+    $stmt->bindValue(count($statuses) + 1, $codigoMin);
+    $stmt->bindValue(count($statuses) + 2, $codigoMax);
     $stmt->execute();
 
     while ($row = $stmt->fetch()) {
@@ -293,7 +299,8 @@ function getClientStorageSize(S3Client $s3, string $bucket, string $basePrefix, 
  * Retorna custo estimado desta operação (soma das chamadas de todos os clientes).
  */
 function getTotalByStatus(PDO $pdo, S3Client $s3, string $bucket, string $basePrefix, array $statuses,
-                          string $runId, string $schemaOut, string $tableOut, string $statusesFilter): array {
+                          string $runId, string $schemaOut, string $tableOut, string $statusesFilter,
+                          int $codigoMin, int $codigoMax): array {
     logMsg("Listando clientes com status IN (" . implode(',', $statuses) . ")…");
 
     $totalBytes = 0;
@@ -301,7 +308,7 @@ function getTotalByStatus(PDO $pdo, S3Client $s3, string $bucket, string $basePr
     $totalApiCalls = 0;
     $processed = 0;
 
-    foreach (getClientsByStatuses($pdo, $statuses) as $cli) {
+    foreach (getClientsByStatuses($pdo, $statuses, $codigoMin, $codigoMax) as $cli) {
         $codigo = (int)$cli['codigo_acesso'];
         $status = (string)$cli['status'];
 
@@ -371,7 +378,8 @@ function getTotalByStatus(PDO $pdo, S3Client $s3, string $bucket, string $basePr
  * Soma total para clientes cujo status ∉ lista dada.
  */
 function getTotalByStatusNot(PDO $pdo, S3Client $s3, string $bucket, string $basePrefix, array $statuses,
-                             string $runId, string $schemaOut, string $tableOut, string $statusesFilter): array {
+                             string $runId, string $schemaOut, string $tableOut, string $statusesFilter,
+                             int $codigoMin, int $codigoMax): array {
     logMsg("Listando clientes com status NOT IN (" . implode(',', $statuses) . ")…");
 
     $totalBytes = 0;
@@ -379,7 +387,7 @@ function getTotalByStatusNot(PDO $pdo, S3Client $s3, string $bucket, string $bas
     $totalApiCalls = 0;
     $processed = 0;
 
-    foreach (getClientsNotInStatuses($pdo, $statuses) as $cli) {
+    foreach (getClientsNotInStatuses($pdo, $statuses, $codigoMin, $codigoMax) as $cli) {
         $codigo = (int)$cli['codigo_acesso'];
         $status = (string)$cli['status'];
 
@@ -463,6 +471,8 @@ function main(array $opts): void {
     $statusesFilter = implode(',', $statuses);
     $includeNotIn   = $opts['include_not_in'];
     $computeTotal   = $opts['compute_total_bucket'];
+    $codigoMin      = $opts['codigo_acesso_min'];
+    $codigoMax      = $opts['codigo_acesso_max'];
 
     // Segurança básica do log
     if (!file_exists(LOG_FILE)) {
@@ -485,12 +495,12 @@ function main(array $opts): void {
     // Dica: composer require ramsey/uuid (opcional)
 
     // 1) SOMA IN(statuses)
-    $in = getTotalByStatus($pdo, $s3, $bucket, $basePrefix, $statuses, $runId, $schemaOut, $tableOut, $statusesFilter);
+    $in = getTotalByStatus($pdo, $s3, $bucket, $basePrefix, $statuses, $runId, $schemaOut, $tableOut, $statusesFilter, $codigoMin, $codigoMax);
 
     // 2) SOMA NOT IN(statuses), se solicitado
     $not = null;
     if ($includeNotIn) {
-        $not = getTotalByStatusNot($pdo, $s3, $bucket, $basePrefix, $statuses, $runId, $schemaOut, $tableOut, $statusesFilter);
+        $not = getTotalByStatusNot($pdo, $s3, $bucket, $basePrefix, $statuses, $runId, $schemaOut, $tableOut, $statusesFilter, $codigoMin, $codigoMax);
     }
 
     // 3) TOTAL BUCKET, se solicitado (cuidado: caro/lento)
@@ -542,14 +552,16 @@ function main(array $opts): void {
 
 // ===================== START =====================
 main([
-    'bucket'             => $bucket,
-    'region'             => $region,
-    'base_prefix'        => $basePrefix,
-    'db_host'            => $dbHost,
-    'db_name'            => $dbName,
-    'db_schema_out'      => $dbSchemaOut,
-    'table_out'          => $tableOut,
-    'statuses'           => $statuses,
-    'include_not_in'     => $includeNotIn,
+    'bucket'              => $bucket,
+    'region'              => $region,
+    'base_prefix'         => $basePrefix,
+    'db_host'             => $dbHost,
+    'db_name'             => $dbName,
+    'db_schema_out'       => $dbSchemaOut,
+    'table_out'           => $tableOut,
+    'statuses'            => $statuses,
+    'include_not_in'      => $includeNotIn,
     'compute_total_bucket'=> $computeTotalBucket,
+    'codigo_acesso_min'   => $codigoMin,
+    'codigo_acesso_max'   => $codigoMax,
 ]);

@@ -31,6 +31,9 @@ $dbPass  = $_ENV['DB_PASS'];
 $statusesStr = $_ENV['STATUSES'] ?? 'Y,B,S,G';
 $statuses    = array_values(array_filter(array_map('trim', explode(',', $statusesStr))));
 
+$codigoMin = (int)($_ENV['CODIGO_ACESSO_MIN'] ?? 100000);
+$codigoMax = (int)($_ENV['CODIGO_ACESSO_MAX'] ?? 999999);
+
 // ===================== CONEXÕES =====================
 function connectDatabase(string $host, string $db, string $user, string $pass): PDO {
     $dsn  = "mysql:host={$host};dbname={$db};charset=utf8mb4";
@@ -68,12 +71,12 @@ function prefixExists(S3Client $s3, string $bucket, string $prefix): bool {
 /**
  * Busca todos os clientes ativos do RDS (codigo_acesso 6 dígitos).
  */
-function fetchClients(PDO $pdo, array $statuses): array {
+function fetchClients(PDO $pdo, array $statuses, int $codigoMin, int $codigoMax): array {
     $in   = implode(',', array_fill(0, count($statuses), '?'));
     $sql  = "SELECT codigo_acesso
                FROM medic_clinica
               WHERE status IN ($in)
-                AND codigo_acesso BETWEEN 100000 AND 999999
+                AND codigo_acesso BETWEEN ? AND ?
                 AND codigo_acesso IS NOT NULL
                 AND codigo_acesso <> 0
            ORDER BY codigo_acesso";
@@ -82,6 +85,8 @@ function fetchClients(PDO $pdo, array $statuses): array {
     foreach ($statuses as $i => $st) {
         $stmt->bindValue($i + 1, $st);
     }
+    $stmt->bindValue(count($statuses) + 1, $codigoMin);
+    $stmt->bindValue(count($statuses) + 2, $codigoMax);
     $stmt->execute();
     return $stmt->fetchAll(PDO::FETCH_COLUMN);
 }
@@ -90,7 +95,7 @@ function fetchClients(PDO $pdo, array $statuses): array {
 $pdo = connectDatabase($dbHost, $dbName, $dbUser, $dbPass);
 $s3  = createS3Client($region);
 
-$clients = fetchClients($pdo, $statuses);
+$clients = fetchClients($pdo, $statuses, $codigoMin, $codigoMax);
 $total   = count($clients);
 
 fwrite(STDERR, "Verificando {$total} clientes no bucket [{$bucket}]..." . PHP_EOL);
