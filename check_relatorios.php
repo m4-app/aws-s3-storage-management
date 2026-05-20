@@ -106,7 +106,7 @@ foreach ($clients as $i => $codigo) {
     $prefix = "uploads/{$b64}/usuarios/relatorios/";
 
     if (prefixExists($s3, $bucket, $prefix)) {
-        $found[] = (string)$codigo;
+        $found[] = "{$codigo} ({$b64})";
     }
 
     // Progresso a cada 100 clientes
