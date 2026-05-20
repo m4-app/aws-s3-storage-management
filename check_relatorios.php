@@ -18,10 +18,10 @@ use Dotenv\Dotenv;
 // ===================== CONFIG =====================
 $dotenv = Dotenv::createImmutable(__DIR__);
 $dotenv->load();
-$dotenv->required(['DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS']);
+$dotenv->required(['S3_BUCKET', 'DB_HOST', 'DB_NAME', 'DB_USER', 'DB_PASS']);
 
-$region  = $_ENV['S3_REGION']      ?? 'sa-east-1';
-$bucket  = $_ENV['CDN_BUCKET']     ?? '4medic-cdn';
+$region  = $_ENV['S3_REGION'] ?? 'sa-east-1';
+$bucket  = $_ENV['S3_BUCKET'];
 
 $dbHost  = $_ENV['DB_HOST'];
 $dbName  = $_ENV['DB_NAME'];
