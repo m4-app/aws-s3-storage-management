@@ -26,40 +26,32 @@ require __DIR__ . '/vendor/autoload.php';
 use Aws\S3\S3Client;
 use Aws\Exception\AwsException;
 use Ramsey\Uuid\Uuid;
+use Dotenv\Dotenv;
 
 // ===================== CONFIG E CONSTANTES =====================
 const LIST_PRICE_PER_1000 = 0.005;         // USD por 1000 ListObjectsV2
 const PAGE_SIZE           = 1000;          // S3 máximo por página
 const LOG_FILE            = '/var/log/s3-size-check.log';
 
-// ===================== LEITURA DO ARQUIVO DE CONFIG =====================
-$configFile = getenv('HOME') . '/.config/config.ini';
-if (!file_exists($configFile)) {
-    fwrite(STDERR, "ERRO: Arquivo de configuração config.ini não encontrado em {$configFile}\n");
-    exit(1);
-}
+// ===================== LEITURA DO .env =====================
+$dotenv = Dotenv::createImmutable(__DIR__);
+$dotenv->load();
+$dotenv->required(['S3_BUCKET', 'DB_HOST', 'DB_NAME', 'DB_SCHEMA_OUT', 'DB_TABLE_OUT', 'DB_USER', 'DB_PASS']);
 
-$config = parse_ini_file($configFile, true, INI_SCANNER_TYPED);
-if ($config === false) {
-    fwrite(STDERR, "ERRO: Falha ao ler config.ini\n");
-    exit(1);
-}
+$bucket             = $_ENV['S3_BUCKET'];
+$region             = $_ENV['S3_REGION']      ?? 'sa-east-1';
+$basePrefix         = $_ENV['S3_BASE_PREFIX'] ?? 'uploads/';
 
-// Mapear as variáveis
-$bucket             = $config['basic']['bucket'] ?? '';
-$region             = $config['basic']['region'] ?? 'sa-east-1';
-$basePrefix         = $config['basic']['base_prefix'] ?? 'uploads/';
+$dbHost             = $_ENV['DB_HOST'];
+$dbName             = $_ENV['DB_NAME'];
+$dbSchemaOut        = $_ENV['DB_SCHEMA_OUT'];
+$tableOut           = $_ENV['DB_TABLE_OUT'];
+$dbUser             = $_ENV['DB_USER'];
+$dbPass             = $_ENV['DB_PASS'];
 
-$dbHost             = $config['database']['db_host'] ?? '';
-$dbName             = $config['database']['db_name'] ?? '';
-$dbSchemaOut        = $config['database']['db_schema_out'] ?? '';
-$tableOut           = $config['database']['table_out'] ?? '';
-$dbUser             = $config['database']['db_user'] ?? '';
-$dbPass             = $config['database']['db_pass'] ?? '';
-
-$statusesStr        = $config['filters']['statuses'] ?? 'Y,B,S,G';
-$includeNotIn       = filter_var($config['filters']['include_not_in'] ?? false, FILTER_VALIDATE_BOOLEAN);
-$computeTotalBucket = filter_var($config['filters']['compute_total_bucket'] ?? false, FILTER_VALIDATE_BOOLEAN);
+$statusesStr        = $_ENV['STATUSES']              ?? 'Y,B,S,G';
+$includeNotIn       = filter_var($_ENV['INCLUDE_NOT_IN']       ?? 'false', FILTER_VALIDATE_BOOLEAN);
+$computeTotalBucket = filter_var($_ENV['COMPUTE_TOTAL_BUCKET'] ?? 'false', FILTER_VALIDATE_BOOLEAN);
 
 $statuses = array_values(array_filter(array_map('trim', explode(',', $statusesStr)), fn($s) => $s !== ''));
 
